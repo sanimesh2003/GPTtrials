@@ -1,52 +1,53 @@
-// ocr.js — step-2: real OCR with Tesseract.js v6
-// ------------------------------------------------------------
-// Browser support: any modern Chromium / Firefox / Safari.
-// No build tools required (ES-module import from CDN).
+// ocr.js — real OCR using Tesseract.js (browser-only, no server)
 
+// Import the ESM bundle from jsDelivr CDN.
 import { createWorker } from "https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js";
 
-// Wrap worker creation + language init in a promise so we can await it later
+// DOM refs
+const fileInput = document.getElementById("fileInput");
+const progressEl = document.getElementById("progress");
+const resultEl = document.getElementById("result");
+
+// Spin up a worker and preload English language.
+// This runs once and is reused for every image.
 const workerReady = (async () => {
   const worker = await createWorker({
-    // Show running % in the UI
-    logger: m => {
-      if (m.status === "recognizing text") updateProgress(m.progress);
+    // Progress events come through here (0..1). We display them.
+    logger: msg => {
+      if (msg.status === "recognizing text") {
+        updateProgress(msg.progress);
+      }
     }
   });
-  await worker.loadLanguage("eng");   // English for now
+  await worker.loadLanguage("eng");
   await worker.initialize("eng");
   return worker;
 })();
 
-// ---------- DOM helpers ----------
-const $file = document.getElementById("fileInput");
-const $progress = document.getElementById("progress");
-const $result = document.getElementById("result");
-
-$file.addEventListener("change", async e => {
-  const file = e.target.files?.[0];
+fileInput.addEventListener("change", async evt => {
+  const file = evt.target.files && evt.target.files[0];
   if (!file) return;
 
-  // UI state
-  $result.textContent = "";
+  // Reset UI
+  resultEl.textContent = "";
   updateProgress(0);
-  $file.disabled = true;
+  fileInput.disabled = true;
 
   try {
-    const worker = await workerReady;          // waits for WASM + lang to finish loading
+    const worker = await workerReady;
     const { data: { text } } = await worker.recognize(file);
-    $result.textContent = text || "[No text detected]";
+    resultEl.textContent = text && text.trim().length ? text : "[No text detected]";
     updateProgress(1);
   } catch (err) {
     console.error(err);
-    $result.textContent = `Error: ${err.message}`;
+    resultEl.textContent = `Error: ${err.message}`;
   } finally {
-    $file.disabled = false;
+    fileInput.disabled = false;
   }
 });
 
-// Update the progress line → “OCR: 42 %”
-function updateProgress(pct) {
-  const percent = Math.round(pct * 100);
-  $progress.textContent = `OCR: ${percent}%`;
+// Helper to show "OCR: NN%"
+function updateProgress(p) {
+  const pct = Math.max(0, Math.min(1, Number(p) || 0));
+  progressEl.textContent = `OCR: ${Math.round(pct * 100)}%`;
 }
