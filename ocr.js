@@ -1,31 +1,48 @@
-// ocr.js — real OCR using Tesseract.js (browser-only, no server)
-
-// Import the ESM bundle from jsDelivr CDN.
+// ocr.js — GitHub Pages–safe: serve worker & WASM from same origin
 import { createWorker } from "https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js";
 
-// DOM refs
 const fileInput = document.getElementById("fileInput");
 const progressEl = document.getElementById("progress");
 const resultEl = document.getElementById("result");
 
-// Launch worker and preload English
+function updateProgress(p) {
+  const pct = Math.max(0, Math.min(1, Number(p) || 0));
+  progressEl.textContent = `OCR: ${Math.round(pct * 100)}%`;
+}
+
+function showError(message) {
+  resultEl.textContent = "Error: " + message;
+  console.error(message);
+}
+
+// IMPORTANT: these files are in your repo under vendor/tesseract/
+const BASE = "./vendor/tesseract/";
+
 const workerReady = (async () => {
-  const worker = await createWorker({
-    logger: msg => {
-      if (msg.status === "recognizing text") updateProgress(msg.progress);
-    }
-  });
-  await worker.loadLanguage("eng");
-  await worker.initialize("eng");
-  return worker;
+  try {
+    const worker = await createWorker({
+      workerPath: BASE + "worker.min.js",
+      corePath:   BASE + "tesseract-core.wasm.js",
+      // If your browser supports SIMD, you can switch to the SIMD core:
+      // corePath: BASE + "tesseract-core-simd.wasm.js",
+      langPath: "https://tessdata.projectnaptha.com/4.0.0",
+      logger: m => {
+        if (m.status === "recognizing text") updateProgress(m.progress);
+      }
+    });
+    await worker.loadLanguage("eng");
+    await worker.initialize("eng");
+    return worker;
+  } catch (e) {
+    showError("Failed to initialize OCR worker. See console for details.");
+    throw e;
+  }
 })();
 
-// Single handler: fires whether user clicks the input directly or the button overlay
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files && fileInput.files[0];
   if (!file) return;
 
-  // Reset UI
   resultEl.textContent = "";
   updateProgress(0);
   fileInput.disabled = true;
@@ -33,19 +50,12 @@ fileInput.addEventListener("change", async () => {
   try {
     const worker = await workerReady;
     const { data: { text } } = await worker.recognize(file);
-    resultEl.textContent = text && text.trim().length ? text : "[No text detected]";
+    resultEl.textContent = text?.trim() ? text : "[No text detected]";
     updateProgress(1);
   } catch (err) {
-    console.error(err);
-    resultEl.textContent = `Error: ${err.message}`;
+    showError(err.message || String(err));
   } finally {
     fileInput.disabled = false;
-    // Clear the input so selecting the same file again will retrigger 'change'
-    fileInput.value = "";
+    fileInput.value = ""; // allow reselecting same file
   }
 });
-
-function updateProgress(p) {
-  const pct = Math.max(0, Math.min(1, Number(p) || 0));
-  progressEl.textContent = `OCR: ${Math.round(pct * 100)}%`;
-}
