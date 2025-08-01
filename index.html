@@ -10,16 +10,17 @@
   <main>
     <h1>OCR Reader (alpha)</h1>
 
-    <!-- Image picker (JPEG/PNG/WebP). We'll add PDF support later. -->
-    <button id="chooseBtn" class="btn" type="button">Choose an image</button>
-    <input type="file" id="fileInput" accept="image/*">
+    <!-- Robust file picker: input overlays the button (opacity: 0) -->
+    <div class="file-wrap">
+      <button class="btn" type="button" aria-label="Choose an image">Choose an image</button>
+      <input type="file" id="fileInput" accept="image/*" aria-label="Image file input">
+    </div>
 
     <!-- Progress + result -->
     <div id="progress" aria-live="polite">OCR: 0%</div>
     <pre id="result" aria-label="Recognized text output"></pre>
   </main>
 
-  <!-- App logic -->
   <script type="module" src="ocr.js"></script>
 </body>
 </html>

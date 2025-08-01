@@ -8,18 +8,11 @@ const fileInput = document.getElementById("fileInput");
 const progressEl = document.getElementById("progress");
 const resultEl = document.getElementById("result");
 
-// NEW: make the visible button open the hidden file input
-document.getElementById("chooseBtn").addEventListener("click", () => fileInput.click());
-
-// Spin up a worker and preload English language.
-// This runs once and is reused for every image.
+// Launch worker and preload English
 const workerReady = (async () => {
   const worker = await createWorker({
-    // Progress events come through here (0..1). We display them.
     logger: msg => {
-      if (msg.status === "recognizing text") {
-        updateProgress(msg.progress);
-      }
+      if (msg.status === "recognizing text") updateProgress(msg.progress);
     }
   });
   await worker.loadLanguage("eng");
@@ -27,8 +20,9 @@ const workerReady = (async () => {
   return worker;
 })();
 
-fileInput.addEventListener("change", async evt => {
-  const file = evt.target.files && evt.target.files[0];
+// Single handler: fires whether user clicks the input directly or the button overlay
+fileInput.addEventListener("change", async () => {
+  const file = fileInput.files && fileInput.files[0];
   if (!file) return;
 
   // Reset UI
@@ -46,10 +40,11 @@ fileInput.addEventListener("change", async evt => {
     resultEl.textContent = `Error: ${err.message}`;
   } finally {
     fileInput.disabled = false;
+    // Clear the input so selecting the same file again will retrigger 'change'
+    fileInput.value = "";
   }
 });
 
-// Helper to show "OCR: NN%"
 function updateProgress(p) {
   const pct = Math.max(0, Math.min(1, Number(p) || 0));
   progressEl.textContent = `OCR: ${Math.round(pct * 100)}%`;
