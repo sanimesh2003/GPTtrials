@@ -8,6 +8,9 @@ const fileInput = document.getElementById("fileInput");
 const progressEl = document.getElementById("progress");
 const resultEl = document.getElementById("result");
 
+// NEW: make the visible button open the hidden file input
+document.getElementById("chooseBtn").addEventListener("click", () => fileInput.click());
+
 // Spin up a worker and preload English language.
 // This runs once and is reused for every image.
 const workerReady = (async () => {
